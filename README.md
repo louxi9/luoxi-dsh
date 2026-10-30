@@ -31,7 +31,7 @@
 ## 安装
 
 ```bash
-git clone https://github.com/luoxi9/luoxi-dsh.git
+git clone https://github.com/louxi9/luoxi-dsh.git
 cd luoxi-dsh
 node install.mjs "<宿主目录>"
 ```
