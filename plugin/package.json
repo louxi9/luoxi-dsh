@@ -1,0 +1,28 @@
+{
+  "name": "luoxi-plugin-dsh",
+  "version": "0.1.0",
+  "description": "把 会话消息桥接到 DeepSeek Harness 的 ACP 会话（洛希）",
+  "type": "module",
+  "bin": {
+    "luoxi-plugin-dsh": "bin/luoxi.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "dsh-plugin",
+    "deepseek-harness",
+    "agent-bridge",
+    "acp"
+  ],
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}

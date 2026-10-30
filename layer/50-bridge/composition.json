@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "id": "luoxi-bridge",
+  "order": 50,
+  "enabled": true,
+  "components": {
+    "core.ingest": {
+      "module": "./wrap-ingest.mjs",
+      "export": "wrapIngest",
+      "mode": "wrap"
+    },
+    "core.send": {
+      "module": "./wrap-send.mjs",
+      "export": "wrapSend",
+      "mode": "wrap"
+    }
+  },
+  "routes": [
+    {
+      "id": "luoxi-bridge",
+      "module": "./routes.mjs",
+      "export": "register"
+    }
+  ]
+}

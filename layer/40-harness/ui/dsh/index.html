@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DeepSeek Harness</title><link rel="stylesheet" href="/panels/common.css"><link rel="stylesheet" href="style.css"></head>
+<body data-panel="dsh"><main>
+  <header class="head">
+    <div>
+      <div class="eyebrow">DEEPSEEK HARNESS · 内置运行时</div>
+      <h2>DeepSeek Harness</h2>
+      <p id="status" class="muted" role="status" aria-live="polite">正在读取运行时状态…</p>
+    </div>
+    <div class="actions">
+      <button type="button" id="start" class="primary">启动并打开</button>
+      <button type="button" id="open" class="ghost">打开窗口</button>
+      <button type="button" id="stop" class="ghost">停止</button>
+    </div>
+  </header>
+
+  <section class="cards">
+    <article class="card">
+      <h3>运行时</h3>
+      <dl id="facts" class="facts"></dl>
+      <p class="hint">随包只有 node.exe、npm 和 dsh 本体；依赖在第一次启动时从 npm 源下载安装（约 835MB，1–2 分钟），之后秒开。安装过程关闭了第三方安装脚本（<code>--ignore-scripts</code>），并按 package-lock 校验完整性。</p>
+    </article>
+
+    <article class="card">
+      <h3>怎么用</h3>
+      <ol class="steps">
+        <li>点「安装并启动」。首次会先装依赖，再起 dsh，最后单独开一个窗口。</li>
+        <li>窗口里选一个工作目录就能开工；窗口关掉只是关界面，dsh 还在跑。</li>
+        <li>模型与凭据在 dsh 自己的设置里填；这里只管启停，不代管任何钥匙。</li>
+      </ol>
+      <p class="hint">注意：DeepSeek Harness 会用你填的账号把对话发到 DeepSeek 的服务器，这是它本身的工作方式，不是本软件在收集。关掉宿主会一起收掉 dsh 和它的窗口。</p>
+    </article>
+
+    <article class="card">
+      <h3>洛希通道</h3>
+      <dl id="bridge-facts" class="facts"></dl>
+      <p class="hint" id="bridge-hint">给 DSH 插件用的本机接口：插件连上后，会话里的 /dsh 命令才会转给它。</p>
+      <p class="hint"><button type="button" id="bridge-token" class="ghost">显示 token</button> <button type="button" id="bridge-refresh" class="ghost">刷新</button></p>
+      <pre id="bridge-token-value" class="log" hidden></pre>
+    </article>
+
+    <article class="card wide">
+      <div class="card-head"><h3>运行日志</h3><button type="button" id="reload" class="ghost">刷新</button></div>
+      <pre id="log" class="log" aria-live="off"></pre>
+    </article>
+  </section>
+</main><script type="module" src="panel.js"></script></body></html>

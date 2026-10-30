@@ -1,0 +1,59 @@
+{
+  "version": 2,
+  "id": "luoxi-harness",
+  "order": 40,
+  "enabled": true,
+  "components": {
+    "console.panels": {
+      "module": "./order.mjs",
+      "export": "wrapPanelOrder",
+      "mode": "wrap"
+    }
+  },
+  "routes": [
+    {
+      "id": "dsh",
+      "module": "./routes.mjs",
+      "export": "register"
+    }
+  ],
+  "ui": {
+    "panels": [
+      {
+        "id": "dsh",
+        "title": "DeepSeek",
+        "entry": "index.html",
+        "assetRoot": "./ui/dsh",
+        "permissions": [
+          "ui.panel"
+        ],
+        "api": [
+          {
+            "method": "GET",
+            "path": "/api/dsh/status"
+          },
+          {
+            "method": "POST",
+            "path": "/api/dsh/start"
+          },
+          {
+            "method": "POST",
+            "path": "/api/dsh/stop"
+          },
+          {
+            "method": "POST",
+            "path": "/api/dsh/open"
+          },
+          {
+            "method": "GET",
+            "path": "/api/luoxi/status"
+          },
+          {
+            "method": "GET",
+            "path": "/api/luoxi/token"
+          }
+        ]
+      }
+    ]
+  }
+}
