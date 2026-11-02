@@ -24,6 +24,7 @@ export function parseCommand(text, prefix = '/dsh') {
 }
 
 export const HELP_TEXT = [
+  '（私聊里直接发消息就交给 DSH，不用打命令；发 /dsh off 可以关掉）',
   '/dsh <任务>   把这条交给 DeepSeek Harness',
   '/dsh on       本会话后续消息都由 DSH 接管',
   '/dsh off      交回主脑',

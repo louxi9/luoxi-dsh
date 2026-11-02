@@ -51,6 +51,70 @@
           {
             "method": "GET",
             "path": "/api/luoxi/token"
+          },
+          {
+            "method": "GET",
+            "path": "/api/dsh/models"
+          },
+          {
+            "method": "POST",
+            "path": "/api/dsh/models"
+          },
+          {
+            "method": "POST",
+            "path": "/api/luoxi/config"
+          },
+          {
+            "method": "POST",
+            "path": "/api/luoxi/plugin"
+          },
+          {
+            "method": "POST",
+            "path": "/api/pet/chat"
+          },
+          {
+            "method": "GET",
+            "path": "/api/pet/chat/history"
+          },
+          {
+            "method": "GET",
+            "path": "/api/pet/sessions"
+          },
+          {
+            "method": "POST",
+            "path": "/api/dsh-panel/chat"
+          },
+          {
+            "method": "GET",
+            "path": "/api/dsh-panel/sessions"
+          },
+          {
+            "method": "POST",
+            "path": "/api/dsh-panel/sessions"
+          },
+          {
+            "method": "POST",
+            "path": "/api/dsh-panel/history"
+          },
+          {
+            "method": "POST",
+            "path": "/api/dsh-panel/trace"
+          },
+          {
+            "method": "GET",
+            "path": "/api/dsh/ui"
+          },
+          {
+            "method": "POST",
+            "path": "/api/dsh/ui"
+          },
+          {
+            "method": "GET",
+            "path": "/api/dsh/plugins"
+          },
+          {
+            "method": "POST",
+            "path": "/api/dsh/plugins"
           }
         ]
       }

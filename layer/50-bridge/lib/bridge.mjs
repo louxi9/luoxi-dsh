@@ -6,11 +6,13 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { WebSocketServer } from 'ws';
 import { HELP_TEXT, parseCommand } from './commands.mjs';
+import { holder } from './holder.mjs';
 
 const PROTOCOL = 1;
 const MAX_RECENT = 40;
 const AUTH_TIMEOUT_MS = 10000;
 const MAX_RESTARTS = 5;
+const PERMISSIONS = new Set(['ask', 'allow', 'deny']);
 
 const DEFAULTS = Object.freeze({
   enabled: true,
@@ -20,6 +22,10 @@ const DEFAULTS = Object.freeze({
   autoStart: true,
   workspace: '',
   approvalTimeoutMs: 120000,
+  // privateDefault: 'dsh' —— 私聊不用打 /dsh，直接说就交给 DSH；'brain' 则回到老行为。
+  privateDefault: 'dsh',
+  // 插件的 --permission：ask 转 QQ 审批 / allow 自动允许 / deny 全拒。
+  permission: 'ask',
   allow: { chats: [], users: [] },
 });
 
@@ -91,9 +97,23 @@ export function createBridge({ dataDir, appRoot = '', log = null }) {
   }
 
   const pluginConnected = () => Boolean(plugin && plugin.ws?.readyState === 1);
-  const chatAllowed = (chatKey) => (config.allow.chats?.length ? config.allow.chats.includes(chatKey) : String(chatKey).startsWith('private:'));
+  // 桌宠窗口的会话（30-desktop-extras 的聊天窗，本机窗口，天然可信）。
+  const PET_CHAT_KEY = 'private:999999999999999';
+  // 会话放行：私聊一律允许；群聊要配了「用户白名单」才放开——
+  // chats 为空时表示所有群都放开，但群里的每个发言人都必须过 users 白名单。
+  const chatAllowed = (chatKey) => {
+    const key = String(chatKey);
+    if (key.startsWith('private:')) return true;
+    if (!(config.allow.users ?? []).length) return false;
+    const chats = (config.allow.chats ?? []).map(String);
+    return chats.length ? chats.includes(key) : true;
+  };
   function senderAllowed(chatKey, senderId) {
-    if (!chatAllowed(chatKey)) return false;
+    const key = String(chatKey);
+    if (key === PET_CHAT_KEY) return true; // 桌宠窗口没有 QQ 号，不走用户白名单
+    // 本机面板发出的消息（senderId 固定 self）：QQ 号不会是 self，不存在伪造面。
+    if (String(senderId) === 'self') return true;
+    if (!chatAllowed(key)) return false;
     const users = (config.allow.users ?? []).map(String);
     return users.length ? users.includes(String(senderId)) : true;
   }
@@ -132,6 +152,9 @@ export function createBridge({ dataDir, appRoot = '', log = null }) {
       modes: [...modes.entries()].map(([chatKey, mode]) => ({ chatKey, mode })),
       approvals: [...approvals.values()].map(a => ({ chatKey: a.chatKey, title: a.title, expiresAt: a.expiresAt })),
       allow: { chats: [...(config.allow.chats ?? [])], users: [...(config.allow.users ?? [])] },
+      privateDefault: config.privateDefault === 'brain' ? 'brain' : 'dsh',
+      workspace: config.workspace || '',
+      permission: config.permission,
       usage: { ...usage },
       recent: recent.slice(-10),
       error: lastError,
@@ -152,14 +175,15 @@ export function createBridge({ dataDir, appRoot = '', log = null }) {
     if (!exists(nodeExe) || !exists(dshBin) || !exists(bin)) return false;
     try { fs.mkdirSync(workspace, { recursive: true }); } catch { /* 目录失败会在插件侧报错 */ }
     const shim = path.join(appRoot, 'runtime', 'dsh', 'bin');
+    // token 走环境变量而不是命令行：--token 会出现在进程列表里，本机任何程序都看得到。
     const args = [
-      bin, '--bridge', `ws://127.0.0.1:${boundPort ?? config.port}`, '--token', token,
+      bin, '--bridge', `ws://127.0.0.1:${boundPort ?? config.port}`,
       '--workspace', workspace, '--dsh', dshBin, '--node', nodeExe, '--dsh-home', home,
-      '--permission', 'ask',
+      '--permission', PERMISSIONS.has(config.permission) ? config.permission : 'ask',
     ];
     const child = spawn(nodeExe, args, {
       cwd: path.join(appRoot),
-      env: { ...process.env, DSH_HOME: home, ...(exists(shim) ? { PATH: `${shim}${path.delimiter}${process.env.PATH ?? ''}` } : {}) },
+      env: { ...process.env, DSH_HOME: home, LUOXI_BRIDGE_TOKEN: token, ...(exists(shim) ? { PATH: `${shim}${path.delimiter}${process.env.PATH ?? ''}` } : {}) },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
     });
@@ -234,7 +258,7 @@ export function createBridge({ dataDir, appRoot = '', log = null }) {
   }
 
   // ---- 消息路由 ----
-  async function handleMessage(result) {
+  async function handleMessage(result, options = {}) {
     const chatKey = result.chatKey;
     const entry = result.entry ?? {};
     const text = String(entry.text ?? '');
@@ -251,7 +275,15 @@ export function createBridge({ dataDir, appRoot = '', log = null }) {
 
     const cmd = parseCommand(text, config.command);
     const sticky = modes.get(chatKey) === 'sticky';
-    if (!cmd && !sticky) return false;
+    const brain = modes.get(chatKey) === 'brain'; // 发过 /dsh off，显式交回主脑
+    // 私聊默认直接交给 DSH（配置 privateDefault:'dsh'），/dsh off 可关掉；
+    // 桌宠窗口由窗口里的「主脑/DSH」开关决定，走 options.force 强制转发。
+    const isPet = chatKey === PET_CHAT_KEY;
+    // 白名单为空时私聊不自动接管：否则任何好友发来的私聊都会被 DSH 接走。
+    const privateDefault = config.privateDefault === 'dsh' && (config.allow.users ?? []).length > 0
+      && String(chatKey).startsWith('private:') && !isPet && !sticky && !brain;
+    const forced = options.force === true;
+    if (!cmd && !sticky && !forced && !privateDefault) return false;
     if (!senderAllowed(chatKey, entry.senderId)) return Boolean(cmd);
 
     const images = (entry.media ?? []).filter(m => m.kind === 'image' && (m.url || m.file)).map(m => ({ url: m.url ?? '', file: m.file ?? '' }));
@@ -262,6 +294,8 @@ export function createBridge({ dataDir, appRoot = '', log = null }) {
         chat: { key: chatKey, type: chatKey.startsWith('group:') ? 'group' : 'private' },
         sender: { id: String(entry.senderId ?? ''), name: String(entry.senderName ?? '') },
         text, images, mode: 'sticky', at: Date.now(),
+        ...(options.fresh === true ? { fresh: true } : {}),
+        ...(options.sessionId ? { sessionId: String(options.sessionId) } : {}),
       });
       remember({ chatKey, kind: 'prompt', mode: 'sticky', chars: text.length, images: images.length });
       return true;
@@ -272,7 +306,7 @@ export function createBridge({ dataDir, appRoot = '', log = null }) {
         await reply(chatKey, HELP_TEXT);
         return true;
       case 'status': {
-        const lines = [`模式：${sticky ? 'DSH 接管中' : '主脑'}`];
+        const lines = [`模式：${sticky ? 'DSH 接管中' : brain ? '主脑（已用 /dsh off 交回）' : privateDefault ? '主脑（私聊默认走 DSH，发 /dsh off 可交回）' : '主脑'}`];
         lines.push(pluginConnected() ? `插件：${plugin.name ?? 'luoxi-plugin-dsh'} 已连接` : '插件：未连接');
         if (approvals.has(chatKey)) lines.push('有一条审批等你回复数字。');
         await reply(chatKey, lines.join('\n'));
@@ -284,8 +318,8 @@ export function createBridge({ dataDir, appRoot = '', log = null }) {
         remember({ chatKey, kind: 'mode', mode: 'sticky' });
         return true;
       case 'off':
-        modes.delete(chatKey); saveState();
-        await reply(chatKey, '已交回主脑。');
+        modes.set(chatKey, 'brain'); saveState();
+        await reply(chatKey, '已交回主脑。发 /dsh on 或 /dsh <任务> 再交回来。');
         remember({ chatKey, kind: 'mode', mode: 'off' });
         return true;
       case 'new':
@@ -303,6 +337,8 @@ export function createBridge({ dataDir, appRoot = '', log = null }) {
           chat: { key: chatKey, type: chatKey.startsWith('group:') ? 'group' : 'private' },
           sender: { id: String(entry.senderId ?? ''), name: String(entry.senderName ?? '') },
           text: cmd.text ?? text, images, mode: 'oneshot', at: Date.now(),
+          ...(options.fresh === true ? { fresh: true } : {}),
+          ...(options.sessionId ? { sessionId: String(options.sessionId) } : {}),
         });
         if (config.ack !== false) await reply(chatKey, '已交给 DSH，处理中…');
         remember({ chatKey, kind: 'prompt', mode: 'oneshot', chars: (cmd.text ?? text).length, images: images.length });
@@ -360,6 +396,11 @@ export function createBridge({ dataDir, appRoot = '', log = null }) {
         return;
       }
       if (msg?.type === 'approval.request') { requestApproval(ws, msg); return; }
+      if (msg?.type === 'tool.report') {
+        // 单向通知：转给宿主侧（30 层）存轨迹，供桌宠/面板显示。
+        try { holder.toolSink?.(msg); } catch { /* 消费方失败不影响插件 */ }
+        return;
+      }
       if (msg?.type === 'usage.report') {
         usage.inputTokens += Number(msg.inputTokens) || 0;
         usage.outputTokens += Number(msg.outputTokens) || 0;
@@ -431,6 +472,8 @@ export function createBridge({ dataDir, appRoot = '', log = null }) {
       if (patch.command !== undefined && String(patch.command).startsWith('/')) config.command = String(patch.command);
       if (patch.workspace !== undefined) config.workspace = String(patch.workspace);
       if (patch.allow) config.allow = { chats: [...(patch.allow.chats ?? config.allow.chats ?? [])].map(String), users: [...(patch.allow.users ?? config.allow.users ?? [])].map(String) };
+      if (patch.privateDefault !== undefined) config.privateDefault = patch.privateDefault === 'brain' ? 'brain' : 'dsh';
+      if (patch.permission !== undefined && PERMISSIONS.has(String(patch.permission))) config.permission = String(patch.permission);
       saveConfig();
       return describe();
     },

@@ -3,4 +3,6 @@
 export const holder = {
   send: null,
   bridge: null,
+  // 插件上报的工具调用轨迹（30 层桌宠/面板把它存起来给界面用）。
+  toolSink: null,
 };

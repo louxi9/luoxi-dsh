@@ -1,47 +1,117 @@
 <!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DeepSeek Harness</title><link rel="stylesheet" href="/panels/common.css"><link rel="stylesheet" href="style.css"></head>
-<body data-panel="dsh"><main>
-  <header class="head">
-    <div>
-      <div class="eyebrow">DEEPSEEK HARNESS · 内置运行时</div>
-      <h2>DeepSeek Harness</h2>
-      <p id="status" class="muted" role="status" aria-live="polite">正在读取运行时状态…</p>
+<body data-panel="dsh"><div class="shell">
+  <nav class="side" aria-label="DeepSeek 分页">
+    <div class="brand">DEEPSEEK</div>
+    <button type="button" class="nav-item" data-tab="overview">概览</button>
+    <button type="button" class="nav-item" data-tab="chat">对话</button>
+    <button type="button" class="nav-item" data-tab="plugins">插件</button>
+    <button type="button" class="nav-item" data-tab="model">模型</button>
+    <button type="button" class="nav-item" data-tab="bridge">洛希通道</button>
+    <button type="button" class="nav-item" data-tab="log">运行日志</button>
+    <div class="skin" role="group" aria-label="面板外观">
+      <button type="button" data-skin="solid" title="实底：最清晰，遮住壁纸">A</button>
+      <button type="button" data-skin="dim" title="深色半透：壁纸隐约透出">B</button>
+      <button type="button" data-skin="glass" title="半透 + 文字描边：保留壁纸">C</button>
     </div>
-    <div class="actions">
-      <button type="button" id="start" class="primary">启动并打开</button>
-      <button type="button" id="open" class="ghost">打开窗口</button>
-      <button type="button" id="stop" class="ghost">停止</button>
-    </div>
-  </header>
+  </nav>
+  <main class="main">
+    <p id="status" class="status muted" role="status" aria-live="polite">正在读取运行时状态…</p>
 
-  <section class="cards">
-    <article class="card">
-      <h3>运行时</h3>
+    <section class="tab" data-tab="overview">
+      <div class="actions">
+        <button type="button" id="start" class="primary">启动并打开</button>
+        <button type="button" id="open" class="ghost">打开窗口</button>
+        <button type="button" id="stop" class="ghost">停止</button>
+      </div>
+      <div class="metrics">
+        <div class="metric"><span>插件</span><b id="m-plugin">—</b></div>
+        <div class="metric"><span>放行</span><b id="m-allow">—</b></div>
+        <div class="metric"><span>接管</span><b id="m-modes">—</b></div>
+      </div>
+      <label class="pref"><input type="checkbox" id="pref-open" checked> 启动时自动打开 DSH 窗口</label>
+      <label class="pref"><input type="checkbox" id="pref-autostart"> QQA 启动时自动启动 DSH</label>
       <dl id="facts" class="facts"></dl>
-      <p class="hint">随包只有 node.exe、npm 和 dsh 本体；依赖在第一次启动时从 npm 源下载安装（约 835MB，1–2 分钟），之后秒开。安装过程关闭了第三方安装脚本（<code>--ignore-scripts</code>），并按 package-lock 校验完整性。</p>
-    </article>
+      <p class="hint">随包只有 node.exe、npm 和 dsh 本体；依赖在第一次启动时从 npm 源下载安装（约 835MB，1–2 分钟）。安装过程关闭了第三方安装脚本（<code>--ignore-scripts</code>），并按 package-lock 校验完整性。</p>
+      <p class="hint">用法：点「安装并启动」，窗口里选工作目录就能开工；窗口关掉只是关界面，dsh 还在跑。模型与凭据在 dsh 自己的设置里填，这里只管启停、不代管钥匙。关掉宿主会一起收掉 dsh 和它的窗口。</p>
+    </section>
 
-    <article class="card">
-      <h3>怎么用</h3>
-      <ol class="steps">
-        <li>点「安装并启动」。首次会先装依赖，再起 dsh，最后单独开一个窗口。</li>
-        <li>窗口里选一个工作目录就能开工；窗口关掉只是关界面，dsh 还在跑。</li>
-        <li>模型与凭据在 dsh 自己的设置里填；这里只管启停，不代管任何钥匙。</li>
-      </ol>
-      <p class="hint">注意：DeepSeek Harness 会用你填的账号把对话发到 DeepSeek 的服务器，这是它本身的工作方式，不是本软件在收集。关掉宿主会一起收掉 dsh 和它的窗口。</p>
-    </article>
+    <section class="tab chat" data-tab="chat" hidden>
+      <div class="chat-head">
+        <div class="chat-ws" id="chat-ws-bar">
+          <span class="label">工作区</span>
+          <span class="path" id="chat-ws-path">—</span>
+          <button type="button" id="chat-ws-toggle" class="ghost">切换</button>
+        </div>
+        <div class="chat-ws-edit" id="chat-ws-edit" hidden>
+          <input id="chat-ws-input" placeholder="输入绝对路径，例如 C://work//demo" autocomplete="off" spellcheck="false">
+          <button type="button" id="chat-ws-apply" class="primary">应用</button>
+          <button type="button" id="chat-ws-cancel" class="ghost">取消</button>
+        </div>
+        <span class="chat-ws-hint" id="chat-ws-hint"></span>
+      </div>
+      <div class="chat-body">
+        <aside class="chat-side">
+          <button type="button" id="chat-new" class="ghost">＋ 新会话</button>
+          <ul class="chat-sessions" id="chat-sessions"></ul>
+        </aside>
+        <div class="chat-main">
+          <div class="chat-log" id="chat-log"></div>
+          <div class="chat-composer" id="chat-form">
+            <input id="chat-input" placeholder="交给 DSH 的任务…（Enter 发送）" autocomplete="off">
+            <button type="button" id="chat-send" class="primary">发送</button>
+          </div>
+        </div>
+      </div>
+    </section>
 
-    <article class="card">
-      <h3>洛希通道</h3>
+    <section class="tab" data-tab="plugins" hidden>
+      <div class="plugins">
+        <div class="plugin-section">
+          <div class="plugin-title">内置功能包（bundle）· 改完重启插件生效</div>
+          <ul class="plugin-list" id="plugin-bundles"></ul>
+        </div>
+        <div class="plugin-section">
+          <div class="plugin-title">安装其他包 · 走 dsh plugin，装完自动预检，失败自动回滚</div>
+          <div class="plugin-install">
+            <input id="plugin-name" placeholder="npm 包名，例如 @scope/pkg" autocomplete="off" spellcheck="false">
+            <button type="button" id="plugin-add" class="primary">安装</button>
+            <button type="button" id="plugin-remove" class="ghost">卸载</button>
+          </div>
+          <p class="hint">装的是 DSH 的 acp profile 依赖：官方包已经在本地，启用即可；第三方包会真的走 pnpm 下载，并用 dsh 自己组合一遍配置做校验。</p>
+          <pre id="plugin-output" class="log" hidden></pre>
+        </div>
+        <p class="hint" id="plugin-hint"></p>
+      </div>
+    </section>
+
+    <section class="tab" data-tab="model" hidden>
+      <dl class="facts form">
+        <dt>LLM 模型</dt>
+        <dd><select id="dsh-model"></select></dd>
+        <dt>工具权限</dt>
+        <dd>
+          <select id="dsh-permission">
+            <option value="ask">询问（在 QQ 里回数字）</option>
+            <option value="allow">自动允许</option>
+            <option value="deny">全部拒绝</option>
+          </select>
+        </dd>
+      </dl>
+      <p class="hint" id="model-hint">模型用于<strong>新建</strong>的 DSH 会话；权限决定 DSH 调用工具（写文件、执行命令）时怎么审批。</p>
+      <p class="hint"><button type="button" id="save-model" class="primary">保存并重启插件</button> <span id="save-state"></span></p>
+    </section>
+
+    <section class="tab" data-tab="bridge" hidden>
       <dl id="bridge-facts" class="facts"></dl>
       <p class="hint" id="bridge-hint">给 DSH 插件用的本机接口：插件连上后，会话里的 /dsh 命令才会转给它。</p>
       <p class="hint"><button type="button" id="bridge-token" class="ghost">显示 token</button> <button type="button" id="bridge-refresh" class="ghost">刷新</button></p>
       <pre id="bridge-token-value" class="log" hidden></pre>
-    </article>
+    </section>
 
-    <article class="card wide">
-      <div class="card-head"><h3>运行日志</h3><button type="button" id="reload" class="ghost">刷新</button></div>
+    <section class="tab" data-tab="log" hidden>
+      <div class="log-head"><button type="button" id="reload" class="ghost">刷新</button></div>
       <pre id="log" class="log" aria-live="off"></pre>
-    </article>
-  </section>
-</main><script type="module" src="panel.js"></script></body></html>
+    </section>
+  </main>
+</div><script type="module" src="panel.js"></script></body></html>
